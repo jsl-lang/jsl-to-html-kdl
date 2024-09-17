@@ -14,6 +14,7 @@ struct Opts {
     env: bool,
     envfile: Vec<PathBuf>,
     bind: Vec<Binding>,
+    deps: Option<PathBuf>,
     #[bpaf(positional)]
     file: Option<PathBuf>,
 }
@@ -45,6 +46,7 @@ impl FromStr for Binding {
 
 fn main() -> miette::Result<()> {
     let opts = opts().run();
+    let mut deps = vec![];
     let mut bindings: HashMap<String, String> = HashMap::default();
     if opts.env {
         for (var, val) in std::env::vars() {
@@ -71,9 +73,12 @@ fn main() -> miette::Result<()> {
             .unwrap_or_else(|| PathBuf::from(".")),
     };
     let kdl_source = match &opts.file {
-        Some(path) => std::fs::read_to_string(path)
-            .into_diagnostic()
-            .context(path.display().to_string())?,
+        Some(path) => {
+            deps.push(path.clone());
+            std::fs::read_to_string(path)
+                .into_diagnostic()
+                .context(path.display().to_string())?
+        }
         None => {
             let mut buf = String::new();
             std::io::stdin()
@@ -85,9 +90,16 @@ fn main() -> miette::Result<()> {
     let doc: KdlDocument = kdl_source.parse()?;
     let mut output = String::new();
     for node in doc.nodes() {
-        handle_node(&mut output, node, 0, &mut context)?;
+        handle_node(&mut output, node, 0, &mut context, &mut deps)?;
     }
     println!("{output}");
+    if let Some(p) = opts.deps {
+        use std::io::Write;
+        let mut f = std::fs::File::create(p).into_diagnostic()?;
+        for d in deps {
+            writeln!(f, "{}", d.display()).into_diagnostic()?;
+        }
+    }
     Ok(())
 }
 
@@ -121,6 +133,7 @@ fn handle_node(
     node: &KdlNode,
     depth: usize,
     context: &mut Ctx,
+    deps: &mut Vec<PathBuf>,
 ) -> miette::Result<()> {
     match NodeType::infer(node)? {
         NodeType::Text => {
@@ -160,7 +173,7 @@ fn handle_node(
             } else if let Some(doc) = node.children() {
                 writeln!(output, ">").unwrap();
                 for child in doc.nodes() {
-                    handle_node(output, child, depth + 1, context)?;
+                    handle_node(output, child, depth + 1, context, deps)?;
                 }
                 writeln!(output, "{}</{}>", Indent(depth), node.name().value()).unwrap();
             } else {
@@ -183,6 +196,7 @@ fn handle_node(
             let path = get_text_arg(node).ok_or_else(|| miette!("No arg"))?;
             let path = interpolate_txt(context, path)?;
             let path = context.wdir.join(path);
+            deps.push(path.clone());
             let source = std::fs::read_to_string(&path)
                 .into_diagnostic()
                 .context(path.display().to_string())?;
@@ -217,7 +231,7 @@ fn handle_node(
                             .unwrap_or_else(|| PathBuf::from(".")),
                     };
                     for node in doc.nodes() {
-                        handle_node(output, node, depth, &mut context2)?;
+                        handle_node(output, node, depth, &mut context2, deps)?;
                     }
                 }
                 Some(ext) => bail!("{ext}: Extension not recognised"),
