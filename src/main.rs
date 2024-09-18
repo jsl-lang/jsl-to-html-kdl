@@ -28,6 +28,14 @@ impl FromStr for Binding {
         let (ident, value) = s
             .split_once('=')
             .ok_or_else(|| miette!("Binding needs an equals sign"))?;
+        if let Some(x) = value.strip_prefix('"') {
+            if let Some(x) = x.strip_suffix('"') {
+                return Ok(Binding {
+                    ident: ident.to_owned(),
+                    value: x.replace("\\\"", "\"").to_owned(),
+                });
+            }
+        }
         Ok(Binding {
             ident: ident.to_owned(),
             value: value.to_owned(),
