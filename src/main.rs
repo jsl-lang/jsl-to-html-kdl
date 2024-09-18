@@ -12,6 +12,7 @@ use std::{
 #[derive(Bpaf)]
 struct Opts {
     env: bool,
+    envfile: Vec<PathBuf>,
     bind: Vec<Binding>,
     #[bpaf(positional)]
     file: Option<PathBuf>,
@@ -40,6 +41,13 @@ fn main() -> miette::Result<()> {
     if opts.env {
         for (var, val) in std::env::vars() {
             bindings.insert(var.to_owned(), val.to_owned());
+        }
+    }
+    for envfile in opts.envfile {
+        let txt = std::fs::read_to_string(envfile).into_diagnostic()?;
+        for line in txt.lines() {
+            let binding: Binding = line.parse()?;
+            bindings.insert(binding.ident, binding.value);
         }
     }
     for binding in opts.bind {
