@@ -167,6 +167,18 @@ fn handle_node(
                 writeln!(output, " />").unwrap();
             }
         }
+        NodeType::Shell => {
+            let cmd = get_text_arg(node).ok_or_else(|| miette!("No arg"))?;
+            let cmd = interpolate_txt(context, cmd)?;
+            let child = std::process::Command::new("/bin/sh")
+                .args(["-c", &cmd])
+                .spawn()
+                .unwrap();
+            let out = child.wait_with_output().unwrap().stdout;
+            for line in String::from_utf8(out).unwrap().lines() {
+                writeln!(output, "{}{}", Indent(depth), line).unwrap();
+            }
+        }
         NodeType::Include => {
             let path = get_text_arg(node).ok_or_else(|| miette!("No arg"))?;
             let path = interpolate_txt(context, path)?;
@@ -245,6 +257,7 @@ enum NodeType {
     Text,
     BindVar,
     Include,
+    Shell,
 }
 
 #[derive(Debug)]
@@ -267,6 +280,7 @@ impl NodeType {
             "let" => NodeType::BindVar,
             // "markdown" => NodeType::InlineMarkdown,
             "@include" => NodeType::Include,
+            "@sh" => NodeType::Shell,
             "!doctype" => NodeType::Doctype,
             _ => NodeType::Html5,
         })
