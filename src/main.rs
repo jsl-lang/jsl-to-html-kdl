@@ -237,30 +237,27 @@ fn handle_node(
                 Some(ext) => bail!("{ext}: Extension not recognised"),
                 None => bail!("No file extension"),
             };
-        } // NodeType::InlineMarkdown => {
-          //     let md_source =
-          //         if let Some(path) = node.get("include").and_then(|x| x.value().as_string()) {
-          //             std::fs::read_to_string(path)?
-          //         } else if !node.entries().is_empty() {
-          //             node.entries()
-          //                 .iter()
-          //                 .filter(|x| x.name().is_none())
-          //                 .filter_map(|x| x.value().as_string())
-          //                 .collect()
-          //         } else {
-          //             node.children()
-          //                 .iter()
-          //                 .flat_map(|x| x.nodes())
-          //                 .map(|x| format!("{}\n", x.name().value()))
-          //                 .collect()
-          //         };
-          //     let parser = pulldown_cmark::Parser::new(&md_source);
-          //     let mut html_output = String::new();
-          //     pulldown_cmark::html::push_html(&mut html_output, parser);
-          //     for line in html_output.lines() {
-          //         writeln!(output, "{}{}", Indent(depth).unwrap() line)?;
-          //     }
-          // }
+        }
+        NodeType::Markdown => {
+            let md_source: String = if !node.entries().is_empty() {
+                get_text_arg(node)
+                    .ok_or_else(|| miette!("No arg"))?
+                    .to_owned()
+            } else {
+                node.children()
+                    .iter()
+                    .flat_map(|x| x.nodes())
+                    .map(|x| format!("{}\n", x.name().value()))
+                    .collect()
+            };
+            let md_source = interpolate_txt(context, &md_source)?;
+            let parser = pulldown_cmark::Parser::new(&md_source);
+            let mut html_output = String::new();
+            pulldown_cmark::html::push_html(&mut html_output, parser);
+            for line in html_output.lines() {
+                writeln!(output, "{}{}", Indent(depth), line).unwrap();
+            }
+        }
     }
     Ok(())
 }
@@ -269,6 +266,7 @@ enum NodeType {
     Doctype,
     Html5,
     Text,
+    Markdown,
     BindVar,
     Include,
     Shell,
@@ -292,7 +290,7 @@ impl NodeType {
         Ok(match node.name().value() {
             "-" => NodeType::Text,
             "let" => NodeType::BindVar,
-            // "markdown" => NodeType::InlineMarkdown,
+            "markdown" => NodeType::Markdown,
             "@include" => NodeType::Include,
             "@sh" => NodeType::Shell,
             "!doctype" => NodeType::Doctype,
