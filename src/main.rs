@@ -14,7 +14,8 @@ struct Opts {
     env: bool,
     envfile: Vec<PathBuf>,
     bind: Vec<Binding>,
-    deps: Option<PathBuf>,
+    /// Output a GCC-style depfile
+    depfile: Option<PathBuf>,
     #[bpaf(positional)]
     file: Option<PathBuf>,
 }
@@ -93,11 +94,12 @@ fn main() -> miette::Result<()> {
         handle_node(&mut output, node, 0, &mut context, &mut deps)?;
     }
     println!("{output}");
-    if let Some(p) = opts.deps {
+    if let Some(p) = opts.depfile {
         use std::io::Write;
         let mut f = std::fs::File::create(p).into_diagnostic()?;
+        writeln!(f, "stdout: \\").into_diagnostic()?;
         for d in deps {
-            writeln!(f, "{}", d.display()).into_diagnostic()?;
+            writeln!(f, "\t{} \\", d.display()).into_diagnostic()?;
         }
     }
     Ok(())
