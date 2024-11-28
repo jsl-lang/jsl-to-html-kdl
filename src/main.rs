@@ -179,7 +179,15 @@ fn handle_node(
                 }
                 writeln!(output, "{}</{}>", Indent(depth), node.name().value()).unwrap();
             } else {
-                writeln!(output, " />").unwrap();
+                let nname = node.name().value();
+                if nname == "area" || nname == "base" || nname == "br" || nname == "col" ||
+                    nname == "embed" || nname == "hr" || nname == "img" || nname == "input" ||
+                    nname == "link" || nname == "meta" || nname == "param" || nname == "source" ||
+                    nname == "track" || nname == "wbr" {
+                    writeln!(output, " />").unwrap();
+                } else {
+                    writeln!(output, ">{}</{}>", Indent(depth), node.name().value()).unwrap();
+                }
             }
         }
         NodeType::Shell => {
