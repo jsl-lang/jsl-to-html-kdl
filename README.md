@@ -35,13 +35,14 @@ html lang="en" {
         meta charset="utf-8"
         title "${TITLE} - AwesomeSite"
         link href="/style.css" rel="stylesheet"
+        script src="/script.js"
     }
     body {
         div class="container" {
             header {
                 div class="logo" {
                     img src="logo.png"
-                    span "AwesomeSite"
+                    - "AwesomeSite"
                 }
             }
             @include "navbar.kdl"
@@ -73,13 +74,14 @@ Here's what comes out:
 		<meta charset="utf-8" />
 		<title>Home - AwesomeSite</title>
 		<link href="/style.css" rel="stylesheet" />
+        <script src="/script.js"></script>
 	</head>
 	<body>
 		<div class="container">
 			<header>
 				<div class="logo">
 					<img src="logo.png" />
-					<span>AwesomeSite</span>
+					AwesomeSite
 				</div>
 			</header>
 			<nav>
